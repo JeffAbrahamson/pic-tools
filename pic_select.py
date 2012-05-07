@@ -168,6 +168,8 @@ class ImageFiles:
     def display_image(self):
         """Display the current image."""
         # geeqie --remote view 
+        if self.main_index >= len(self.main):
+            return
         subprocess.call(['geeqie', '--remote', 'file:', \
                              self.main[self.main_index]])
 
