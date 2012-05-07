@@ -10,3 +10,4 @@ pic-dates() {
 	ls "$1" | perl -pwe 's/-.*$//;' | uniq | grep -v txt;
     fi
 }
+pic-select() { pic_select.py $1; }
