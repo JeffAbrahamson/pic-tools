@@ -1,0 +1,20 @@
+#!/bin/sh
+
+if [ $# -gt 2 ]; then
+   echo Usage: pic-small image-file [small-name]
+   echo
+   echo "    Copy image-file to /tmp/small-name, reducing size to"
+   echo "    fit in an 800x800 pixel bounding box."
+   echo "    If small-name is absent, use image-file-small."
+   exit 1
+fi
+
+# Bug: assumes .jpg
+image=$1
+tmp=$2
+if [ "X$tmp" = "X" ]; then
+    tmp=$(basename $image .jpg)-small.jpg
+fi
+
+echo $image '-->' $tmp
+convert -geometry 800x800 $image /tmp/$tmp;
