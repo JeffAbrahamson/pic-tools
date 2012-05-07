@@ -1,0 +1,157 @@
+#!/usr/bin/perl -w
+
+my $copyright = "
+  pic-new version 0.91, Copyright (C) 2001-2004  Jeff Abrahamson
+  pic-new comes with ABSOLUTELY NO WARRANTY; in particular:
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or (at
+  your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+  USA.
+
+  See also <http://www.fsf.org/copyleft/gpl.html>
+
+  Use the flag --help for usage information.
+";
+
+
+use POSIX;
+use Getopt::Long;
+use FileHandle;
+use Date::Parse;
+
+
+my $usage = "
+ Usage: pic-new [options] image1 image2 ...
+
+ For each image, rename as 'image__date.jpg' where 'date' is the date
+ the image was taken.  The image is then rotated as suggested by the
+ EXIF data, backing up to a a like-named file with a .orig extension.
+
+    --time=N        Offset the time by N hours
+    --nr            Don't rotate images even if the EXIF suggests it
+    --dryrun        Don't actually do anything, just indicate what would have been done
+    --help          Print this message and exit
+";
+
+
+
+if(scalar(@ARGV) == 0) {
+    print $copyright;
+} else {
+    my($help,$dryrun,$tz_offset,$no_rotate);
+    $tz_offset = 0;
+    GetOptions('help' => \$help,
+	       'dryrun' => \$dryrun,
+	       'time=f' => \$tz_offset,
+	       'nr' => \$no_rotate);
+    if(defined($help)) {
+	print $usage;
+	exit(0);
+    }
+    # No protection from user entering foolish shell metacharacters
+    do_images($dryrun,$tz_offset,$no_rotate,@ARGV);
+}
+
+
+
+sub do_images {
+
+    my $dryrun = shift;
+    my $tz_offset = shift;
+    my $no_rotate = shift;
+    my @images = @_;
+
+    $tz_offset *= 3600;		# in seconds
+    foreach my $f (@images) {
+	my $seq = $f;
+	$seq =~ s/[^0-9]//g;
+
+	$f =~ s/\`//g;		# no backticks allowed
+	# Use EXIF data for date
+	my $line = `exiftags -i -s':' $f | grep "Image Created:"`;
+	$line =~ s/^Image Created:\s*//;
+	chomp($line);
+	if(!$line) {
+	    $line = 0;
+	    print "No EXIF creation date.\n";
+	}
+	$mtime = str2time($line) + $tz_offset;
+	# I don't believe digital photos that claim to be from
+	# before 1985 or so: issue a warning and use the file date.
+	if($mtime < 3600*24*365*15) {
+	    print "EXIF data isn't believable ($mtime).  Using file date.\n";
+	    $mtime = (stat $f)[9] + $tz_offset;
+	}
+	
+	my $then = POSIX::strftime("%Y%m%d-%H%M%S", localtime($mtime));
+	# Handle jpeg file renames
+	my $base_name = $then . '-' . $seq;
+	my $name = $base_name . ".jpg";
+	my $canon_base_name = $f;
+	my $orig = $name . '.orig-' . time();
+	# Handle possible raw file transformations:
+	$canon_base_name =~ s/.jpg$//i;
+	my $canon_raw_name = $canon_base_name . ".CR2";
+	my $linux_raw_name = $base_name . ".cr2";
+	# Use -i flag on move so we don't accidentally wipe out a previous
+	# image while going through a large batch.
+	my $rotate_check_cmd = "jhead \"$f\" | grep Orientation";
+	my $rot = `$rotate_check_cmd`;
+	chomp($rot);
+	do_move($f, $name, $orig, ($no_rotate or !$rot), $dryrun);
+	if(-e $canon_raw_name) {
+	    # No transform on raw files, whether or not we rotated the jpeg.
+	    # We pass unusable name for orig in case we accidentally try to use it.
+	    do_move($canon_raw_name, $linux_raw_name, '/', 1, $dryrun);
+	}
+    }		# foreach
+}
+
+
+sub do_move {
+
+    my $f = shift;
+    my $name = shift;
+    my $orig = shift;
+    my $no_rotation = shift;
+    my $dryrun = shift;
+
+    if($no_rotation) {
+	my $cmd_rename = "mv -i \"$f\" $name";
+	if($dryrun) {
+	    print "$cmd_rename\n";
+	} else {
+	    `$cmd_rename`;
+	}
+    } else {
+	my $cmd_backup = "mv -i \"$f\" $orig";
+	my $cmd_transform = "exiftran -a $orig -o $name";
+	my $cmd_clean = "rm $orig";
+	if($dryrun) {
+	    print "$cmd_backup\n";
+	    print "$cmd_transform\n";
+	    print "$cmd_clean\n";
+	} else {
+	    print "$f ==> $name ...\n";
+	    if(-r $name or -r $orig) {
+		print "    File already exists, skipping!\n";
+	    } else {
+		`$cmd_backup`;
+		`$cmd_transform`;
+		`$cmd_clean`;
+	    }
+	}
+    }	# if($no_rotation) ... else
+}
+
