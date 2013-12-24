@@ -8,4 +8,4 @@ BINS =			\
 
 install : $(BINS)
 	for f in $(BINS); do /bin/cp -f $$f $(BIN)/; done
-	cp pic-bash.sh $(HOME)/.bash_pictools
+	cp pic-bash.sh $(HOME)/.dotfiles/bash/pictools
