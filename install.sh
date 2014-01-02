@@ -3,11 +3,7 @@
 ## This install file is pretty custom.
 ## Modify to suit your site.
 
-TO_BIN='pic-new
-    pic_select.py
-    pic-small
-'
-/bin/cp $TO_BIN "$HOME/bin/"
+/bin/cp bin/* "$HOME/bin/"
 
 # This works with my dotfiles setup.
 cp pic-bash.sh $HOME/.dotfiles/bash/pictools
