@@ -1,0 +1,87 @@
+#!/usr/bin/perl -w
+
+my $copyright = "
+  new-image version 0.91, Copyright (C) 2001-2004  Jeff Abrahamson
+  new-image comes with ABSOLUTELY NO WARRANTY; in particular:
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or (at
+  your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+  USA.
+
+  See also <http://www.fsf.org/copyleft/gpl.html>
+
+  Use the flag --help for usage information.
+";
+
+
+use POSIX;
+use Getopt::Long;
+use FileHandle;
+
+
+my $usage = " Usage: pic-rotate rotation image1 image2 ...
+
+ Rotation is one of =90, =180, or =270 or the synonyms =left, =l;
+ =flip, =f; and =right, =r.
+";
+
+
+
+if(scalar(@ARGV) == 0) {
+    print $copyright;
+} else {
+    my $op = shift;
+    if(!defined($op) or scalar(@ARGV) < 1) {
+	print $usage;
+	exit(1);
+    }
+    if($op eq "=90" or $op eq "=right" or $op eq "=r") {
+	# rotate 90
+	$op = 90;
+    } elsif($op eq "=180" or $op eq "=flip" or $op eq "=f") {
+	$op = 180;
+    } elsif($op eq "=270" or $op eq "=left" or $op eq "=l") {
+	$op = 270;
+    } else {
+	print $usage;
+	exit(1);
+    }
+    do_images($op, @ARGV);
+}
+
+
+
+sub do_images {
+
+    my $op = shift;
+    my @images = @_;
+
+    foreach my $f (@images) {
+	$f =~ s/\`//g;		# no backticks allowed
+	rotate_image($f, $op) if($op != 0);
+    }
+}
+
+
+
+sub rotate_image {
+
+    my($f,$deg) = @_;
+
+    my $bak = "$f.orig";
+    `mv -i "$f" "$bak"` if( ! -r "$bak" );
+    print "    Rotating '$bak' by $deg degrees to '$f'...\n";
+    `convert -quality 100 -rotate $deg "$bak" jpg:"$f"`;
+    return;
+}

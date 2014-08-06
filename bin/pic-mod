@@ -1,0 +1,190 @@
+#!/usr/bin/perl -w
+
+my $copyright = "
+  pic-mod version 0.92, Copyright (C) 2001-2005  Jeff Abrahamson
+  pic-mod comes with ABSOLUTELY NO WARRANTY; in particular:
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or (at
+  your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+  USA.
+
+  See also <http://www.fsf.org/copyleft/gpl.html>
+
+  Use the flag --help for usage information.
+";
+
+
+use strict;
+use POSIX;
+use Getopt::Long;
+use FileHandle;
+use Time::Local;
+require File::Temp;
+use File::Temp();
+
+
+#my $image_viewer = "display";
+#my $image_viewer = "eog";
+# An image viewer that needn't quit for us to continue
+my $image_viewer = "gqview --remote file";
+
+my $usage = "
+ Usage: pic-mod [options] image1 image2 ...
+
+ For each image, offer to rename it as indicated by the options
+ selected.  Assumes images are named 'YYYYMMDD-hhmmss-seq.jpg'.  If
+ they are not named in this format, refuse to edit the name.
+
+ pic-mod will also rename related files (.txt, .orig) if present.
+
+    --time=N        Offset the time by N hours
+    --rot           Offer to rotate images
+    --help          Print this message and exit
+";
+
+
+
+if(scalar(@ARGV) == 0) {
+    print $copyright;
+} else {
+    my($help,$opt_tz_offset,$opt_rotate,$opt_text);
+    $opt_tz_offset = 0;
+    GetOptions('help' => \$help,
+	       'time=f' => \$opt_tz_offset,
+	       'rot' => \$opt_rotate);
+    if(defined($help)) {
+	print $usage;
+	exit(0);
+    }
+    # No protection from user entering foolish shell metacharacters
+    do_images($opt_tz_offset,$opt_rotate,@ARGV);
+}
+
+
+
+sub do_images {
+
+    my($opt_tz_offset,$opt_rotate,@images) = @_;
+
+    my $prev_name = '';
+    my $prev_comment = '';
+    my $filed_comment = '';
+    if($opt_rotate and !defined($ENV{'DISPLAY'})) {
+	print "DISPLAY not defined, images will not display\n";
+    }
+    $opt_tz_offset *= 3600;	# in seconds
+    foreach my $f (@images) {
+	if( not ($f =~ m/(^[^-]+)-([^-]+)-(.*)\.jpg$/)) {
+	    print "$f ... bad file name, skipping.\n";
+	} else {
+	    my $ymd = $1;
+	    my $hms = $2;
+	    my $seq = $3;
+	    $ymd =~ m/(....)(..)(..)/;
+	    my $year = $1;
+	    my $month = $2;
+	    my $day = $3;
+	    $hms =~ m/(..)(..)(..)/;
+	    my $hour = $1;
+	    my $minute = $2;
+	    my $second = $3;
+	    my $date = timelocal($second,$minute,$hour,$day,$month-1,$year);
+
+	    my $f_txt = $f;
+	    $f_txt =~ s/jpg$/txt/;
+	    my $f_txt_backup = $f . '~';
+	    my $f_orig = $f;
+	    $f_orig =~ s/jpg$/jpg.orig/;
+
+	    my $new_date = $date;
+	    $new_date += $opt_tz_offset if($opt_tz_offset);
+	    #my $new_date_str = POSIX::strftime("%a-%d-%b-%Y_%H:%M:%S", localtime($new_date));
+	    my $new_date_str = POSIX::strftime("%Y%m%d-%H%M%S", localtime($new_date));
+	    $new_date_str .= "-$seq";
+
+	    if($opt_rotate) {
+		# If rotating, show original, too
+		if(-r $f_orig) {
+		    # Somehow it would be nice to indicate better the
+		    # difference between the original and the current
+		    # images.
+		    print "  (Displaying original image without any rotation.)\n";
+		    display_image($f_orig);
+		} else {
+		    display_image($f);
+		}
+	    }
+
+	    if($date != $new_date) {
+		my $fn = $new_date_str . '.jpg';
+		my $fn_txt = $new_date_str . '.txt';
+		my $fn_txt_backup = $new_date_str . '.txt~';
+		my $fn_orig = $new_date_str . '.jpg.orig';
+		if(-r $fn or -r $fn_txt or -r $fn_txt_backup or -r $fn_orig) {
+		    print "Can't rename $f to $fn, name conflict for some file.\n";
+		} else {
+		    # -i flag should be superfluous
+		    `mv -i "$f" "$fn"` if(-r $f);
+		    `mv -i "$f_txt" "$fn_txt"` if(-r $f_txt);
+		    `mv -i "$f_txt_backup" "$fn_txt_backup"` if(-r $f_txt_backup);
+		    `mv -i "$f_orig" "$fn_orig"` if(-r $f_orig);
+		    $f = $fn;
+		    $f_txt = $fn_txt;
+		    $f_txt_backup = $f_txt_backup;
+		    $f_orig = $fn_orig;
+		}
+	    }
+	    if($opt_rotate) {
+		print "Enter 0, 90, 180, or 270 for rotation from original image.\n";
+		print "[No change]: "; # "No rotation" ?
+		my $deg = <STDIN>;
+		chomp($deg);
+		if("X$deg" ne "X") { # distinguish empty from 0
+		    if(-r $f_orig) {
+			`mv "$f_orig" "$f"`;
+		    }
+		    rotate_image($f,$deg) if($deg);
+		}
+	    }
+	}
+    }	# foreach
+}
+
+
+
+sub display_image {
+
+    my $image = shift;
+
+    if(defined($ENV{'DISPLAY'})) {
+	`$image_viewer $image > /dev/null 2>/dev/null`;
+    } else {
+	print "Would have displayed [$image]\n";
+    }
+}
+
+
+
+sub rotate_image {
+
+    my($f,$deg) = @_;
+
+    my $bak = "$f.orig";
+    print "    Backup (unrotated copy) kept in $bak\n";
+    `cp "$f" "$bak"`;
+    print "    Rotating $deg degrees...\n";
+    my $cmd = "convert -quality 100 -rotate $deg \"$bak\" jpg:\"$f\"";
+    `$cmd`;
+    return;
+}
