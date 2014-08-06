@@ -7,6 +7,6 @@ for f in $*; do
     echo $f...
     in=$(basename $f .jpg).cr2
     out=$(basename $f .jpg)-2.jpg
-    echo ufraw-batch  --compression=100 --out-type=jpg \
+    ufraw-batch  --compression=100 --out-type=jpg \
         "$in" --output="$out"
 done
