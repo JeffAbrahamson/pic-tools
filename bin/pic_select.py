@@ -172,7 +172,11 @@ class ImageFiles:
             return
         subprocess.call(['geeqie', '--remote', 'file:', \
                              self.main[self.main_index]])
-
+        # Pre-cache the next image if it exists. It can take up to two
+        # seconds to pull an image from my file server.
+        if self.main_index + 1 < len(self.main):
+            with open(self.main[self.main_index + 1], 'r') as fp:
+                fp.read()
         
     def update_status(self, stdscr):
         """Update the status message."""
@@ -202,7 +206,26 @@ class ImageFiles:
         if self.main_index >= len(self.main):
             self.main_index = len(self.main) - 1
         self.update_display(stdscr)
-        
+
+    def goto_image(self, stdscr):
+        """Display image N.
+
+        Make no changes in classification, only advance the index pointer."""
+        num_string = ''
+        char = ''
+        while char != '\n':
+            char = stdscr.getkey()
+            num_string += char
+        if len(num_string) > 0:
+            try:
+                self.main_index = int(num_string)
+            except ValueError:
+                return
+        if self.main_index >= len(self.main):
+            self.main_index = len(self.main) - 1
+        if self.main_index <= 0:
+            self.main_index = 0
+        self.update_display(stdscr)
 
     def previous_image(self, stdscr):
         """Display the previous image.
@@ -251,6 +274,7 @@ class ImageFiles:
                 return
             try:
                 {'n': self.next_image,
+                 'g': self.goto_image,
                  'p': self.previous_image,
                  'a': self.accept_image,
                  'r': self.reject_image,
