@@ -23,6 +23,10 @@ pic-select() { pic_select.py $1; }
 # This will break if image file names contain spaces.
 pic-make-shadow() {
     _source="$1"
+    if [ X = "X$_source" -a -e orig ]; then
+	# If the orig/ symlink exists, then I probably want to use that and do an update.
+	_source=$(stat --format='%N' orig | sed -e "s/^.*>//; s/^ ‘//; s/’$//")
+    fi
     if [ ! -d "$_source" ]; then
 	echo "Directory \"$_source\" does not exist."
 	return
