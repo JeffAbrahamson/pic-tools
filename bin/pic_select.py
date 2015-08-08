@@ -181,10 +181,19 @@ class ImageFiles:
     def update_status(self, stdscr):
         """Update the status message."""
         stdscr.clear()
-        message = ('Current=%d  /  Accepted=%d  /  Rejected=%d' \
-            + '  /  Remaining=%d  /  Orig=%d') % \
-            (self.main_index, len(self.accepted), len(self.rejected),
-             len(self.main), len(self.orig))
+        num_accepted = len(self.accepted)
+        num_rejected = len(self.rejected)
+        if num_rejected + num_accepted > 0:
+            frac_accepted = 100.0 * num_accepted / (
+                num_rejected + num_accepted)
+        else:
+            frac_accepted = 0
+        message = ('Current={cur}  /  Accepted={acc} ({acc_pct:.0f}%)  /  Rejected={rej}' \
+                   + '  /  Remaining={remain}  /  Orig={orig}').format(
+                       cur=self.main_index,
+                       acc=num_accepted, rej=num_rejected,
+                       acc_pct = frac_accepted,
+                       remain=len(self.main), orig=len(self.orig))
         stdscr.addstr(1, 1, message)
         if len(self.main) > 0:
             image_message = self.main[self.main_index]
