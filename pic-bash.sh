@@ -48,7 +48,12 @@ pic-make-shadow() {
     _local_text_files=$(/bin/ls *txt* 2>/dev/null)
     for f in $_local_text_files; do
 	if [ ! -e "$_source/$f" ]; then
-	    cp "$f" "$_source/$f"
+	    mv "$f" "$_source/$f"
+	    ln -s "$_source/$f" "$f"
+	elif [ ! -L "$f" ]; then
+	    if ! cmp --silent "$f" "$_source/$f"; then
+		echo $f and orig/$f disagree.
+	    fi
 	fi
     done
     _text_files=$(cd "$_source"; /bin/ls *txt* 2>/dev/null)
