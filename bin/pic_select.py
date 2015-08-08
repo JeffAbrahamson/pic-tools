@@ -161,6 +161,10 @@ class ImageFiles:
 
     def update_display(self, stdscr):
         """Update the image and metadata displays."""
+        if len(self.main) == 0:
+            return;
+        if self.main_index >= len(self.main):
+            self.main_index =     len(self.main) - 1
         self.update_status(stdscr)
         self.display_image()
 
