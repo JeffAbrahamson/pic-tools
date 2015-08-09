@@ -12,6 +12,16 @@ pic-dates() {
 }
 pic-select() { pic_select.py $1; }
 
+ub() {
+    infile="$1.cr2"
+    outfile="$1-2.jpg"
+    if [ ! -r "$infile" -o -e "$outfile" ]; then
+	echo "Existence check failed."
+    else
+	ufraw-batch --create-id=also "$infile" --output="$outfile"
+    fi
+}
+
 # Create or update a shadow directory of images.
 # The argument is the image source directory.
 # For each jpg image in the image source directory that does not exist
@@ -33,7 +43,7 @@ pic-make-shadow() {
     fi
     _image_files=$(cd "$_source"; /bin/ls *jpg)
     for f in $_image_files; do
-	if [ ! -e "$f" ]; then
+	if [ ! -e "$f" -o "orig/$f" -nt "$f" ]; then
 	    echo $f
 	    convert -geometry 1920x1200 "$_source/$f" "$f"
 	fi
@@ -45,24 +55,11 @@ pic-make-shadow() {
 	fi
     done
 
-    _local_text_files=$(/bin/ls *txt* 2>/dev/null | grep -v '~')
-    for f in $_local_text_files; do
-	if [ ! -e "$_source/$f" ]; then
-	    mv "$f" "$_source/$f"
-	    ln -s "$_source/$f" "$f"
-	elif [ ! -L "$f" ]; then
-	    if ! cmp --silent "$f" "$_source/$f"; then
-		echo $f and orig/$f disagree.
-	    fi
-	fi
-    done
-    _text_files=$(cd "$_source"; /bin/ls *txt* 2>/dev/null)
-    for f in $_text_files; do
-	if [ ! -e "$f" ]; then
-	    ln -s "$_source/$f" "$f"
-	fi
-    done
     if [ ! -e orig ]; then
 	ln -s "$_source" orig
     fi
+    # Use the checksum flag in order to avoid updating time with
+    # --update and then copying both ways.
+    rsync -v --checksum --update --exclude='*~' *txt* orig/
+    rsync -v --checksum --update --exclude='*~' orig/*txt* ./
 }
