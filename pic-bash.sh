@@ -45,7 +45,7 @@ pic-make-shadow() {
 	fi
     done
 
-    _local_text_files=$(/bin/ls *txt* 2>/dev/null)
+    _local_text_files=$(/bin/ls *txt* 2>/dev/null | grep -v '~')
     for f in $_local_text_files; do
 	if [ ! -e "$_source/$f" ]; then
 	    mv "$f" "$_source/$f"
