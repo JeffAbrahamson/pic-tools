@@ -187,17 +187,22 @@ class ImageFiles:
         stdscr.clear()
         num_accepted = len(self.accepted)
         num_rejected = len(self.rejected)
+        num_orig = len(self.orig)
+        num_remaining = len(self.main)
         if num_rejected + num_accepted > 0:
             frac_accepted = 100.0 * num_accepted / (
                 num_rejected + num_accepted)
+            frac_remaining = 100.0 * num_remaining / num_orig
         else:
             frac_accepted = 0
+            frac_remaining = 100.0
         message = ('Current={cur}  /  Accepted={acc} ({acc_pct:.0f}%)  /  Rejected={rej}' \
-                   + '  /  Remaining={remain}  /  Orig={orig}').format(
+                   + '  /  Remaining={remain} ({remain_pct:.0f}%)  /  Orig={orig}').format(
                        cur=self.main_index,
                        acc=num_accepted, rej=num_rejected,
                        acc_pct = frac_accepted,
-                       remain=len(self.main), orig=len(self.orig))
+                       remain=num_remaining, remain_pct=frac_remaining,
+                       orig=num_orig)
         stdscr.addstr(1, 1, message)
         if len(self.main) > 0:
             image_message = self.main[self.main_index]
