@@ -196,8 +196,8 @@ class ImageFiles:
         else:
             frac_accepted = 0
             frac_remaining = 100.0
-        message = ('Current={cur}  /  Accepted={acc} ({acc_pct:.0f}%)  /  Rejected={rej}' \
-                   + '  /  Remaining={remain} ({remain_pct:.0f}%)  /  Orig={orig}').format(
+        message = ('Current={cur} / Accepted={acc} ({acc_pct:.0f}%) / Rejected={rej}' \
+                   + ' / Remaining={remain} ({remain_pct:.0f}%) / Orig={orig}').format(
                        cur=self.main_index,
                        acc=num_accepted, rej=num_rejected,
                        acc_pct = frac_accepted,
