@@ -98,22 +98,30 @@ sub do_images {
 	# Handle jpeg file renames
 	my $base_name = $then . '-' . $seq;
 	my $name = $base_name . ".jpg";
-	my $canon_base_name = $f;
 	my $orig = $name . '.orig-' . time();
-	# Handle possible raw file transformations:
-	$canon_base_name =~ s/.jpg$//i;
-	my $canon_raw_name = $canon_base_name . ".CR2";
-	my $linux_raw_name = $base_name . ".cr2";
 	# Use -i flag on move so we don't accidentally wipe out a previous
 	# image while going through a large batch.
 	my $rotate_check_cmd = "jhead \"$f\" | grep Orientation";
 	my $rot = `$rotate_check_cmd`;
 	chomp($rot);
 	do_move($f, $name, $orig, ($no_rotate or !$rot), $dryrun);
+
+	# Handle possible raw file transformations:
+	my $canon_base_name = $f;
+	$canon_base_name =~ s/.jpg$//i;
+	my $canon_raw_name = $canon_base_name . ".CR2";
 	if(-e $canon_raw_name) {
+	    my $linux_raw_name = $base_name . ".cr2";
 	    # No transform on raw files, whether or not we rotated the jpeg.
 	    # We pass unusable name for orig in case we accidentally try to use it.
 	    do_move($canon_raw_name, $linux_raw_name, '/', 1, $dryrun);
+	}
+	my $fuji_raw_name = $canon_base_name . ".RAF";
+	if(-e $fuji_raw_name) {
+	    my $linux_raw_name = $base_name . ".raf";
+	    # No transform on raw files, whether or not we rotated the jpeg.
+	    # We pass unusable name for orig in case we accidentally try to use it.
+	    do_move($fuji_raw_name, $linux_raw_name, '/', 1, $dryrun);
 	}
     }		# foreach
 }
