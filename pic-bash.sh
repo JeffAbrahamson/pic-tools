@@ -1,5 +1,8 @@
 # Some useful bash aliases, to source from .bashrc, for example
 
+# I don't like to type .py, but the .py permits generation of .pyc's.
+alias pic-mod=pic_mod.py
+
 pic-dates() {
     if [ "X$1" = X ]; then
 	for d in $(find .  -maxdepth 1 -type d -o -type l); do
