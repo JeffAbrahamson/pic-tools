@@ -4,7 +4,7 @@ if [ $# -gt 2 ]; then
    echo Usage: pic-small image-file [small-name]
    echo
    echo "    Copy image-file to /tmp/small-name, reducing size to"
-   echo "    fit in an 800x800 pixel bounding box."
+   echo "    fit in an 1200x1200 pixel bounding box."
    echo "    If small-name is absent, use image-file-small."
    exit 1
 fi
@@ -17,4 +17,4 @@ if [ "X$tmp" = "X" ]; then
 fi
 
 echo $image '-->' $tmp
-convert -geometry 800x800 $image /tmp/$tmp;
+convert -geometry 1200x1200 $image /tmp/$tmp;
