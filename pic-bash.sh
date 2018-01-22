@@ -36,8 +36,16 @@ ufr() {
 
 # ufraw-batch with favorite options.
 ufb() {
-    infile="$1.cr2"
-    outfile="$1-2.jpg"
+    base=$(basename $1 .jpg);
+    if [ -r $base.raf ]; then
+	infile="$base.raf";	# What I generate now.
+    elif [ -r $base.cr2 ]; then
+	infile="$base.cr2";	# What I used to generate.
+    else
+	echo "Input file '$base' missing?"
+	infile="$base.cr2"	# Will trigger existence check failure.
+    fi
+    outfile="$base-2.jpg";
     if [ ! -r "$infile" -o -e "$outfile" ]; then
 	echo "Existence check failed."
     else
