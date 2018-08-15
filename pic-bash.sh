@@ -53,6 +53,23 @@ ufb() {
     fi
 }
 
+# Add a file to the current pic-select selection.  I should quite
+# pic-select before using this, since pic-select thinks it is alone in
+# the world: it will ruthlessly overwrite its data file on changes
+# that it initiates.
+pic-add-to-selection() {
+    new_image="$1"
+    select_base="${2:-best}"
+    select_active="${select_base}.txt"
+    select_active_backup="${select_active}.bak"
+    select_all="${select_base}.txt-orig"
+    select_all_backup="${select_all}.bak"
+    mv "$select_active" "$select_active_backup"
+    mv "$select_all" "$select_all_backup"
+    (echo $new_image; cat $select_active_backup) | sort -u > "$select_active"
+    (echo $new_image; cat $select_all_backup) | sort -u > "$select_all"
+}
+
 # Create or update a shadow directory of images.
 # The argument is the image source directory.
 # For each jpg image in the image source directory that does not exist
