@@ -64,10 +64,11 @@ pic-add-to-selection() {
     select_active_backup="${select_active}.bak"
     select_all="${select_base}.txt-orig"
     select_all_backup="${select_all}.bak"
-    mv "$select_active" "$select_active_backup"
-    mv "$select_all" "$select_all_backup"
+    /bin/mv "$select_active" "$select_active_backup"
+    /bin/mv "$select_all" "$select_all_backup"
     (echo $new_image; cat $select_active_backup) | sort -u > "$select_active"
     (echo $new_image; cat $select_all_backup) | sort -u > "$select_all"
+    echo "$new_image added to $select_active"
 }
 
 # Create or update a shadow directory of images.
