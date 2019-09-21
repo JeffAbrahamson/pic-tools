@@ -40,7 +40,7 @@ import sys
 #### Copied, then adapted from
 #### http://code.activestate.com/recipes/134892/
 
-locale.setlocale(locale.LC_ALL,"")
+locale.setlocale(locale.LC_ALL, "")
 # code = locale.getpreferredencoding()
 
 def get_ch_gen(scr):
@@ -76,7 +76,6 @@ def read_file(filename):
         return []
     return lines
 
-            
 def write_file(filename, data):
     """Write data to file filename.
 
@@ -105,14 +104,14 @@ class ImageFiles:
     main_index = 0
     accepted = []
     rejected = []
+    to_delete_raw = []
+    to_delete_image = []
     orig = []
     status = ''
-    
-    
+
     def __init__(self):
         """Init, for good measure."""
         pass
-    
 
     def orig_name(self):
         """Return name of file for original image names.
@@ -121,18 +120,23 @@ class ImageFiles:
         wasn't alphabetical.
         """
         return self.main_name + '-orig'
-    
-        
+
     def accept_name(self):
         """Return name of file for accepted image names."""
         return self.main_name + '-accept'
-    
-        
+
     def reject_name(self):
         """Return name of file for rejected image names."""
         return self.main_name + '-reject'
-    
-        
+
+    def delete_raw_name(self):
+        """Return name of file for raw images to delete."""
+        return self.main_name + '-delete-raw'
+
+    def delete_image_name(self):
+        """Return name of file for images to delete."""
+        return self.main_name + '-delete'
+
     def read(self, filename):
         """Read the image list.
 
@@ -148,7 +152,8 @@ class ImageFiles:
             self.orig = orig
         self.accepted = read_file(self.accept_name())
         self.rejected = read_file(self.reject_name())
-
+        self.to_delete_raw = read_file(self.delete_raw_name())
+        self.to_delete_image = read_file(self.delete_image_name())
 
     def write(self):
         """Write the image files."""
@@ -156,22 +161,24 @@ class ImageFiles:
         write_file(self.main_name, self.main)
         write_file(self.accept_name(), self.accepted)
         write_file(self.reject_name(), self.rejected)
+        write_file(self.delete_raw_name(), self.to_delete_raw)
+        write_file(self.delete_image_name(), self.to_delete_image)
         write_file(self.orig_name(), self.orig)
 
 
     def update_display(self, stdscr):
         """Update the image and metadata displays."""
         if len(self.main) == 0:
-            return;
+            return
         if self.main_index >= len(self.main):
-            self.main_index =     len(self.main) - 1
+            self.main_index = len(self.main) - 1
         self.update_status(stdscr)
         self.display_image()
 
 
     def display_image(self):
         """Display the current image."""
-        # geeqie --remote view 
+        # geeqie --remote view
         if self.main_index >= len(self.main):
             return
         subprocess.call(['geeqie', '--remote', 'file:', \
@@ -179,9 +186,9 @@ class ImageFiles:
         # Pre-cache the next image if it exists. It can take up to two
         # seconds to pull an image from my file server.
         if self.main_index + 1 < len(self.main):
-            with open(self.main[self.main_index + 1], 'r') as fp:
-                fp.read()
-        
+            with open(self.main[self.main_index + 1], 'r') as fp_in:
+                fp_in.read()
+
     def update_status(self, stdscr):
         """Update the status message."""
         stdscr.clear()
@@ -189,6 +196,8 @@ class ImageFiles:
         num_rejected = len(self.rejected)
         num_orig = len(self.orig)
         num_remaining = len(self.main)
+        num_to_delete = len(self.to_delete_image)
+        num_to_delete_raw = len(self.to_delete_raw)
         if num_rejected + num_accepted > 0:
             frac_accepted = 100.0 * num_accepted / (
                 num_rejected + num_accepted)
@@ -196,18 +205,25 @@ class ImageFiles:
         else:
             frac_accepted = 0
             frac_remaining = 100.0
+        frac_to_delete = 100.0 * num_to_delete / num_orig
+        frac_to_delete_raw = 100.0 * num_to_delete_raw / num_orig
         message = ('Current={cur} / Accepted={acc} ({acc_pct:.0f}%) / Rejected={rej}' \
-                   + ' / Remaining={remain} ({remain_pct:.0f}%) / Orig={orig}').format(
+                   + ' / Remaining={remain} ({remain_pct:.0f}%) / ' \
+                   + ' d={delete} ({delete_pct:.0f}%) ' \
+                   + ' dr={delete_raw} ({delete_raw_pct:.0f}%) ' \
+                   + '/ Orig={orig}').format(
                        cur=self.main_index,
                        acc=num_accepted, rej=num_rejected,
-                       acc_pct = frac_accepted,
+                       acc_pct=frac_accepted,
                        remain=num_remaining, remain_pct=frac_remaining,
+                       delete=num_to_delete, delete_pct=frac_to_delete,
+                       delete_raw=num_to_delete_raw, delete_raw_pct=frac_to_delete_raw,
                        orig=num_orig)
         stdscr.addstr(1, 1, message)
         if len(self.main) > 0:
             image_message = self.main[self.main_index]
         else:
-            image_message = ''            
+            image_message = ''
         stdscr.addstr(2, 1, image_message)
         stdscr.addstr(3, 1, self.status)
 
@@ -254,7 +270,6 @@ class ImageFiles:
         if self.main_index <= 0:
             self.main_index = 0
         self.update_display(stdscr)
-        
 
     def accept_image(self, stdscr):
         """Accept the current image.
@@ -266,7 +281,6 @@ class ImageFiles:
             self.main[self.main_index + 1:]
         self.accepted += [accepted_image]
         self.update_display(stdscr)
-        
 
     def reject_image(self, stdscr):
         """Reject the current image.
@@ -278,7 +292,28 @@ class ImageFiles:
             self.main[self.main_index + 1:]
         self.rejected += [rejected_image]
         self.update_display(stdscr)
-        
+
+    def delete_raw_image_future(self, stdscr):
+        """Note that we should delete the raw file.
+
+        Display the next unclassified image.
+        """
+        image_to_delete = self.main[self.main_index]
+        self.main = self.main[:self.main_index] + \
+            self.main[self.main_index + 1:]
+        self.to_delete_raw += [image_to_delete]
+        self.update_display(stdscr)
+
+    def delete_image_future(self, stdscr):
+        """Note that we should delete the image file, jpg and raw.
+
+        Display the next unclassified image.
+        """
+        image_to_delete = self.main[self.main_index]
+        self.main = self.main[:self.main_index] + \
+            self.main[self.main_index + 1:]
+        self.to_delete_image += [image_to_delete]
+        self.update_display(stdscr)
 
     def rep_loop(self, stdscr):
         """Read-Eval-Print loop."""
@@ -297,21 +332,20 @@ class ImageFiles:
                  'a': self.accept_image,
                  'r': self.reject_image,
                  'w': lambda s: self.write(),
+                 'd': self.delete_raw_image_future,
+                 'D': self.delete_image_future,
                  '\n': self.next_image,
-                 }[char](stdscr)
+                }[char](stdscr)
             except KeyError:
                 self.status = 'Key Error'
             self.update_status(stdscr)
         self.write()
         return
 
-
-        
 def usage():
     """How to invoke."""
 
     print sys.argv[0] + " file-of-image-names"
-    
 
 def main():
     """Do what we do."""
@@ -321,7 +355,6 @@ def main():
     images = ImageFiles()
     images.read(sys.argv[1])
     curses.wrapper(images.rep_loop)
-    
 
 if __name__ == "__main__":
     main()
