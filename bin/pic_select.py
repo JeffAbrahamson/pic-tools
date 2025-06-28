@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 
 """A utility to select images.
@@ -9,10 +9,14 @@ Known bugs:
   - Probably misses quite a bit of error handling
 """
 
+import curses
+import locale
+import subprocess
+import sys
 
 
 GPL = """
-Copyright 2012  Jeff Abrahamson
+Copyright 2012, 2023  Jeff Abrahamson
 
 This file is part of pic_select.
 
@@ -31,36 +35,31 @@ along with pic_select.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-import curses
-import locale
-import subprocess
-import sys
-
-
-#### Copied, then adapted from
-#### http://code.activestate.com/recipes/134892/
+# Copied, then adapted from
+# http://code.activestate.com/recipes/134892/
 
 locale.setlocale(locale.LC_ALL, "")
 # code = locale.getpreferredencoding()
 
+
 def get_ch_gen(scr):
     """Read one character from (probably) stdin using curses."""
     while True:
-        char = scr.getch()      # pauses until a key's hit
+        char = scr.getch()  # pauses until a key's hit
         scr.nodelay(1)
         backspace = []
-        while char != -1:       # check if more data is available
-            if char > 255:      # directly yield arrowkeys etc as ints
+        while char != -1:  # check if more data is available
+            if char > 255:  # directly yield arrowkeys etc as ints
                 yield char
             else:
                 backspace.append(chr(char))
                 char = scr.getch()
         scr.nodelay(0)
-        for char in ''.join(backspace).decode('utf8'):
+        for char in "".join(backspace).decode("utf8"):
             yield char
 
 
-#### End of copy from activestate.com
+# End of copy from activestate.com
 
 
 def read_file(filename):
@@ -69,12 +68,15 @@ def read_file(filename):
     Lines are stripped of trailing newline.
     """
     try:
-        with open(filename, 'r') as f_ptr:
+        with open(filename, "r", encoding="utf-8") as f_ptr:
             lines = f_ptr.read().splitlines()
-    except:
-        #print "Failed to read " + filename + ".  Continuing as empty."
+    except FileNotFoundError:
+        return []
+    except IOError as err:
+        print(f"Failed to read {filename}.  Continuing as if empty: {err}.")
         return []
     return lines
+
 
 def write_file(filename, data):
     """Write data to file filename.
@@ -82,7 +84,7 @@ def write_file(filename, data):
     Data is an array, elements of which are written separated by
     newline characters.
     """
-    with open(filename, 'w') as f_ptr:
+    with open(filename, "w", encoding="utf-8") as f_ptr:
         for line in data:
             f_ptr.write(line + "\n")
 
@@ -90,28 +92,27 @@ def write_file(filename, data):
 def screen_setup(stdscr):
     """Set up the screen for our curses pleasure."""
     curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
-    stdscr.bkgd(' ', curses.color_pair(1))
+    stdscr.bkgd(" ", curses.color_pair(1))
     curses.curs_set(0)
-    #stdscr.clear()
-    #stdscr.refresh()
+    # stdscr.clear()
+    # stdscr.refresh()
 
 
 class ImageFiles:
     """Track our decisions thus far, and encapsulate how to behave."""
 
-    main_name = ''
-    main = []
-    main_index = 0
-    accepted = []
-    rejected = []
-    to_delete_raw = []
-    to_delete_image = []
-    orig = []
-    status = ''
-
-    def __init__(self):
-        """Init, for good measure."""
-        pass
+    def __init__(self, filename):
+        """Initialize the image files."""
+        self.main_name = ""
+        self.main = []
+        self.main_index = 0
+        self.accepted = []
+        self.rejected = []
+        self.to_delete_raw = []
+        self.to_delete_image = []
+        self.orig = []
+        self.status = ""
+        self.read(filename)
 
     def orig_name(self):
         """Return name of file for original image names.
@@ -119,23 +120,23 @@ class ImageFiles:
         This is useful to maintain the total order, in case the list
         wasn't alphabetical.
         """
-        return self.main_name + '-orig'
+        return self.main_name + "-orig"
 
     def accept_name(self):
         """Return name of file for accepted image names."""
-        return self.main_name + '-accept'
+        return self.main_name + "-accept"
 
     def reject_name(self):
         """Return name of file for rejected image names."""
-        return self.main_name + '-reject'
+        return self.main_name + "-reject"
 
     def delete_raw_name(self):
         """Return name of file for raw images to delete."""
-        return self.main_name + '-delete-raw'
+        return self.main_name + "-delete-raw"
 
     def delete_image_name(self):
         """Return name of file for images to delete."""
-        return self.main_name + '-delete'
+        return self.main_name + "-delete"
 
     def read(self, filename):
         """Read the image list.
@@ -157,14 +158,12 @@ class ImageFiles:
 
     def write(self):
         """Write the image files."""
-
         write_file(self.main_name, self.main)
         write_file(self.accept_name(), self.accepted)
         write_file(self.reject_name(), self.rejected)
         write_file(self.delete_raw_name(), self.to_delete_raw)
         write_file(self.delete_image_name(), self.to_delete_image)
         write_file(self.orig_name(), self.orig)
-
 
     def update_display(self, stdscr):
         """Update the image and metadata displays."""
@@ -175,19 +174,14 @@ class ImageFiles:
         self.update_status(stdscr)
         self.display_image()
 
-
     def display_image(self):
         """Display the current image."""
         # geeqie --remote view
         if self.main_index >= len(self.main):
             return
-        subprocess.call(['geeqie', '--remote', 'file:', \
-                             self.main[self.main_index]])
-        # Pre-cache the next image if it exists. It can take up to two
-        # seconds to pull an image from my file server.
-        if self.main_index + 1 < len(self.main):
-            with open(self.main[self.main_index + 1], 'r') as fp_in:
-                fp_in.read()
+        subprocess.call(
+            ["geeqie", "--remote", "file:", self.main[self.main_index]]
+        )
 
     def update_status(self, stdscr):
         """Update the status message."""
@@ -199,37 +193,45 @@ class ImageFiles:
         num_to_delete = len(self.to_delete_image)
         num_to_delete_raw = len(self.to_delete_raw)
         if num_rejected + num_accepted > 0:
-            frac_accepted = 100.0 * num_accepted / (
-                num_rejected + num_accepted)
+            frac_accepted = (
+                100.0 * num_accepted / (num_rejected + num_accepted)
+            )
             frac_remaining = 100.0 * num_remaining / num_orig
         else:
             frac_accepted = 0
             frac_remaining = 100.0
         frac_to_delete = 100.0 * num_to_delete / num_orig
         frac_to_delete_raw = 100.0 * num_to_delete_raw / num_orig
-        message = ('Current={cur} / Accepted={acc} ({acc_pct:.0f}%) / Rejected={rej}' \
-                   + ' / Remaining={remain} ({remain_pct:.0f}%) / ' \
-                   + ' d={delete} ({delete_pct:.0f}%) ' \
-                   + ' dr={delete_raw} ({delete_raw_pct:.0f}%) ' \
-                   + '/ Orig={orig}').format(
-                       cur=self.main_index,
-                       acc=num_accepted, rej=num_rejected,
-                       acc_pct=frac_accepted,
-                       remain=num_remaining, remain_pct=frac_remaining,
-                       delete=num_to_delete, delete_pct=frac_to_delete,
-                       delete_raw=num_to_delete_raw, delete_raw_pct=frac_to_delete_raw,
-                       orig=num_orig)
+        message = (
+            "Current={cur} / Accepted={acc} ({acc_pct:.0f}%) / Rejected={rej}"
+            + " / Remaining={remain} ({remain_pct:.0f}%) / "
+            + " d={delete} ({delete_pct:.0f}%) "
+            + " dr={delete_raw} ({delete_raw_pct:.0f}%) "
+            + "/ Orig={orig}"
+        ).format(
+            cur=self.main_index,
+            acc=num_accepted,
+            rej=num_rejected,
+            acc_pct=frac_accepted,
+            remain=num_remaining,
+            remain_pct=frac_remaining,
+            delete=num_to_delete,
+            delete_pct=frac_to_delete,
+            delete_raw=num_to_delete_raw,
+            delete_raw_pct=frac_to_delete_raw,
+            orig=num_orig,
+        )
         stdscr.addstr(1, 1, message)
         if len(self.main) > 0:
             image_message = self.main[self.main_index]
         else:
-            image_message = ''
+            image_message = ""
         stdscr.addstr(2, 1, image_message)
         stdscr.addstr(3, 1, self.status)
 
-        #stdscr.addstr(5, 1, str(self.main))
-        #stdscr.addstr(6, 1, str(self.accepted))
-        #stdscr.addstr(7, 1, str(self.rejected))
+        # stdscr.addstr(5, 1, str(self.main))
+        # stdscr.addstr(6, 1, str(self.accepted))
+        # stdscr.addstr(7, 1, str(self.rejected))
 
     def next_image(self, stdscr):
         """Display the next image.
@@ -244,10 +246,11 @@ class ImageFiles:
     def goto_image(self, stdscr):
         """Display image N.
 
-        Make no changes in classification, only advance the index pointer."""
-        num_string = ''
-        char = ''
-        while char != '\n':
+        Make no changes in classification, only advance the index pointer.
+        """
+        num_string = ""
+        char = ""
+        while char != "\n":
             char = stdscr.getkey()
             num_string += char
         if len(num_string) > 0:
@@ -257,8 +260,7 @@ class ImageFiles:
                 return
         if self.main_index >= len(self.main):
             self.main_index = len(self.main) - 1
-        if self.main_index <= 0:
-            self.main_index = 0
+        self.main_index = max(self.main_index, 0)
         self.update_display(stdscr)
 
     def previous_image(self, stdscr):
@@ -267,8 +269,7 @@ class ImageFiles:
         Make no changes in classification.
         """
         self.main_index -= 1
-        if self.main_index <= 0:
-            self.main_index = 0
+        self.main_index = max(self.main_index, 0)
         self.update_display(stdscr)
 
     def accept_image(self, stdscr):
@@ -277,8 +278,9 @@ class ImageFiles:
         Display the next unclassified image.
         """
         accepted_image = self.main[self.main_index]
-        self.main = self.main[:self.main_index] + \
-            self.main[self.main_index + 1:]
+        self.main = (
+            self.main[: self.main_index] + self.main[self.main_index + 1 :]
+        )
         self.accepted += [accepted_image]
         self.update_display(stdscr)
 
@@ -288,8 +290,9 @@ class ImageFiles:
         Display the next unclassified image.
         """
         rejected_image = self.main[self.main_index]
-        self.main = self.main[:self.main_index] + \
-            self.main[self.main_index + 1:]
+        self.main = (
+            self.main[: self.main_index] + self.main[self.main_index + 1 :]
+        )
         self.rejected += [rejected_image]
         self.update_display(stdscr)
 
@@ -299,8 +302,9 @@ class ImageFiles:
         Display the next unclassified image.
         """
         image_to_delete = self.main[self.main_index]
-        self.main = self.main[:self.main_index] + \
-            self.main[self.main_index + 1:]
+        self.main = (
+            self.main[: self.main_index] + self.main[self.main_index + 1 :]
+        )
         self.to_delete_raw += [image_to_delete]
         self.update_display(stdscr)
 
@@ -310,8 +314,9 @@ class ImageFiles:
         Display the next unclassified image.
         """
         image_to_delete = self.main[self.main_index]
-        self.main = self.main[:self.main_index] + \
-            self.main[self.main_index + 1:]
+        self.main = (
+            self.main[: self.main_index] + self.main[self.main_index + 1 :]
+        )
         self.to_delete_image += [image_to_delete]
         self.update_display(stdscr)
 
@@ -320,41 +325,43 @@ class ImageFiles:
         screen_setup(stdscr)
         self.update_display(stdscr)
         while len(self.main) > 0:
-            self.status = ''
+            self.status = ""
             char = stdscr.getkey()
-            if 'q' == char:
+            if "q" == char:
                 self.write()
                 return
             try:
-                {'n': self.next_image,
-                 'g': self.goto_image,
-                 'p': self.previous_image,
-                 'a': self.accept_image,
-                 'r': self.reject_image,
-                 'w': lambda s: self.write(),
-                 'd': self.delete_raw_image_future,
-                 'D': self.delete_image_future,
-                 '\n': self.next_image,
+                {
+                    "n": self.next_image,
+                    "g": self.goto_image,
+                    "p": self.previous_image,
+                    "a": self.accept_image,
+                    "r": self.reject_image,
+                    "w": lambda s: self.write(),
+                    "d": self.delete_raw_image_future,
+                    "D": self.delete_image_future,
+                    "\n": self.next_image,
                 }[char](stdscr)
             except KeyError:
-                self.status = 'Key Error'
+                self.status = "Key Error"
             self.update_status(stdscr)
         self.write()
         return
 
+
 def usage():
     """How to invoke."""
+    print(sys.argv[0] + " file-of-image-names")
 
-    print sys.argv[0] + " file-of-image-names"
 
 def main():
     """Do what we do."""
     if len(sys.argv) == 1:
         usage()
         return
-    images = ImageFiles()
-    images.read(sys.argv[1])
+    images = ImageFiles(sys.argv[1])
     curses.wrapper(images.rep_loop)
+
 
 if __name__ == "__main__":
     main()
